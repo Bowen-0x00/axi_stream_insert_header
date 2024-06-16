@@ -55,10 +55,11 @@ task hdr_value;
     
 	begin
 		valid_insert <= 1'b1;
-		data_insert <= $random(seed);
-		hdr_cnt <= $urandom_range(0, DATA_BYTE_WD);
+        data_insert <= $random(seed);
+		hdr_cnt <= $urandom_range(2, DATA_BYTE_WD-1);
 		keep_insert <= 4'hf >> (DATA_BYTE_WD - hdr_cnt);
 		byte_insert_cnt <= hdr_cnt;
+
 	end
 endtask
 
@@ -76,7 +77,7 @@ task test_insert_data;
 		hdr_value;
 		@(posedge clk)
 		valid_insert <= 1'b0;
-	    repeat (LAST_CNT+2)
+	    repeat (LAST_CNT+1)
         @(posedge clk);
 	end
 endtask
@@ -87,7 +88,7 @@ task test_insert_before_data;
 		@(posedge clk);
 		valid_insert <=1'b0;
 		send_data;
-		repeat (LAST_CNT+2)
+		repeat (LAST_CNT+1)
         @(posedge clk);
 	end
 endtask
@@ -96,6 +97,7 @@ task test_insert_after_data;
 	begin
 		send_data;
 		@(posedge clk);
+        @(posedge clk);
 		hdr_value;
         @(posedge clk);
         valid_insert <=1'b0;
@@ -145,8 +147,8 @@ always @(posedge clk or negedge rst_n) begin
         last_in <= 0;
         keep_in <= 0;
         data_in <= $random(seed);
-        last_cnt <= $random(seed);
-        hdr_cnt <= $random(seed);
+        last_cnt <= $urandom_range(0, DATA_BYTE_WD-2);
+        hdr_cnt <= $urandom_range(2, DATA_BYTE_WD-1);
     end
     else begin
         if (cnt < LAST_CNT) begin
@@ -157,7 +159,7 @@ always @(posedge clk or negedge rst_n) begin
             valid_in <= 1;
             last_in <= 1;
             if (valid_in & ready_in) begin
-            last_cnt <= $random(seed);
+            last_cnt <= $urandom_range(0, DATA_BYTE_WD-2);
 		    keep_in <= 4'hf << last_cnt;
             end
         end
@@ -176,11 +178,13 @@ always @(posedge clk or negedge rst_n) begin
         data_in <= $random(seed);
     end
     else begin
+        data_in <= $random(seed);
         if (valid_in & ready_in) begin
-            cnt <= cnt + 1;
+            if (cnt <= LAST_CNT)
+                cnt <= cnt + 1;
             if (cnt <= LAST_CNT)
                 data_in <= $random(seed);
-            else
+            else if(last_in)
                 data_in <= 0;
         end
     end
@@ -207,16 +211,20 @@ end
 //     $finish;
 // end
 reg test = 0;
-reg [31:0] seed=4;
+reg [31:0] seed=0;
 initial 
 begin
 	ready_out =1'b1;
     #(PERIOD*3)
-	// test_insert_data;
-	// @(posedge clk);
-	// test_insert_before_data;
-    // test = 1;
-	// @(posedge clk);
+	test_insert_data;
+	@(posedge clk);
+    test_insert_data;
+	@(posedge clk);
+    test_insert_data;
+    @(posedge clk);
+	test_insert_before_data;
+    test = 1;
+	@(posedge clk);
 	test_insert_after_data;
     #(PERIOD*20)
     $finish;
