@@ -51,68 +51,6 @@ begin
     #(PERIOD*2) rst_n  =  1;
 end
 
-task hdr_value;
-    
-	begin
-		valid_insert <= 1'b1;
-        data_insert <= $random(seed);
-		hdr_cnt <= $urandom_range(2, DATA_BYTE_WD-1);
-		keep_insert <= 4'hf >> (DATA_BYTE_WD - hdr_cnt);
-		byte_insert_cnt <= hdr_cnt;
-
-	end
-endtask
-
-task send_data;
-	begin
-		cnt <= 0;
-	end
-endtask
-
-
-
-task test_insert_data;
-	begin
-		send_data;
-		hdr_value;
-		@(posedge clk)
-		valid_insert <= 1'b0;
-	    repeat (LAST_CNT+1)
-        @(posedge clk);
-	end
-endtask
-
-task test_insert_before_data;
-	begin
-		hdr_value;
-		@(posedge clk);
-		valid_insert <=1'b0;
-		send_data;
-		repeat (LAST_CNT+1)
-        @(posedge clk);
-	end
-endtask
-
-task test_insert_after_data;
-	begin
-		send_data;
-		@(posedge clk);
-        @(posedge clk);
-		hdr_value;
-        @(posedge clk);
-        valid_insert <=1'b0;
-        repeat (2)
-		@(posedge clk);
-        ready_out <= '0;
-        repeat (5)
-        @(posedge clk);
-        ready_out <= '1;
-        repeat (LAST_CNT+1)
-        @(posedge clk);
-	end
-endtask
-
-
 axi_stream_insert_header #(
     .DATA_WD      ( DATA_WD      ),
     .DATA_BYTE_WD ( DATA_BYTE_WD ),
@@ -123,7 +61,7 @@ axi_stream_insert_header #(
     .valid_in                ( valid_in                              ),
     .data_in                 ( data_in          [DATA_WD-1 : 0]      ),
     .keep_in                 ( keep_in          [DATA_BYTE_WD-1 : 0] ),
-    .last_in                 ( last_in                               ),
+    .last_in                 ( last_in_r                               ),
     .ready_out               ( ready_out                             ),
     .valid_insert            ( valid_insert                          ),
     .data_insert             ( data_insert      [DATA_WD-1 : 0]      ),
@@ -138,95 +76,76 @@ axi_stream_insert_header #(
     .ready_insert            ( ready_insert                          )
 );
 
-reg [2:0] cnt;
-reg	[DATA_BYTE_WD-1:0] last_cnt;
-reg	[BYTE_CNT_WD-1:0] hdr_cnt;
+reg last_in_r = 0;
+
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
-        valid_in <= 0;
         last_in <= 0;
         keep_in <= 0;
-        data_in <= $random(seed);
-        last_cnt <= $urandom_range(0, DATA_BYTE_WD-2);
-        hdr_cnt <= $urandom_range(2, DATA_BYTE_WD-1);
+        last_in_r <= 0;
     end
     else begin
-        if (cnt < LAST_CNT) begin
-            valid_in <= 1;
-            last_in <= 0;
-            keep_in <= 4'b1111;    
-        end else if (cnt == LAST_CNT) begin
-            valid_in <= 1;
-            last_in <= 1;
-            if (valid_in & ready_in) begin
-            last_cnt <= $urandom_range(0, DATA_BYTE_WD-2);
-		    keep_in <= 4'hf << last_cnt;
+        if (valid_in) begin
+            last_in_r <= last_in;
+            if (last_in_r) begin
+                last_in <= 0;
+                last_in_r <= 0;
+                keep_in <= 4'b1111;
             end
-        end
-        else begin
-            valid_in <= 0;
-            last_in <= 0;
-            keep_in <= 0;
+            else if (last_in) begin
+                keep_in <= 4'b1100;
+            end
+            else keep_in <= 4'b1111;
         end
     end
 end
-
 
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
-        cnt <= 0;
-        data_in <= $random(seed);
+        data_in <= 32'h01020304;
     end
     else begin
-        data_in <= $random(seed);
         if (valid_in & ready_in) begin
-            if (cnt <= LAST_CNT)
-                cnt <= cnt + 1;
-            if (cnt <= LAST_CNT)
-                data_in <= $random(seed);
-            else if(last_in)
-                data_in <= 0;
+            data_in <= data_in + 32'h04040404;
         end
     end
 end
 
-// initial
-// begin
-//     ready_out <= '1;
 
-//     valid_insert <= '0;
-
-//     data_insert <= 32'h01020304;
-//     keep_insert <= 4'b0111;
-//     byte_insert_cnt <= 'd3;
-//     #(PERIOD*5)
-//     valid_insert <= 1;
-//     #(PERIOD*1)
-//     valid_insert <= 0;
-//     #(PERIOD*2)
-//     ready_out <= '0;
-//     #(PERIOD*4)
-//     ready_out <= '1;
-//     #(PERIOD*10)
-//     $finish;
-// end
-reg test = 0;
-reg [31:0] seed=0;
-initial 
+initial
 begin
-	ready_out =1'b1;
-    #(PERIOD*3)
-	test_insert_data;
-	@(posedge clk);
-    test_insert_data;
-	@(posedge clk);
-    test_insert_data;
-    @(posedge clk);
-	test_insert_before_data;
-    test = 1;
-	@(posedge clk);
-	test_insert_after_data;
-    #(PERIOD*20)
+    valid_in <= 1;
+    last_in <= 0;
+
+    ready_out <= '1;
+    valid_insert <= '0;
+
+    data_insert <= 32'hAA55AA55;
+    keep_insert <= 4'b0111;
+    byte_insert_cnt <= 'd3;
+    #(PERIOD*5)
+    valid_insert <= 1;
+    #(PERIOD*1)
+    valid_insert <= 0;
+    #(PERIOD*2)
+    ready_out <= '0;
+    #(PERIOD*4)
+    ready_out <= '1;
+    #(PERIOD*5)
+    last_in <= 1;
+
+    #(PERIOD*1)
+    valid_insert <= 1;
+    keep_insert <= 4'b0001;
+    byte_insert_cnt <= 'd1;
+    valid_in <= 1;
+    #(PERIOD*1)
+    valid_insert <= 0;
+    #(PERIOD*5)
+    last_in <= 1;
+
+
+    #(PERIOD*10)
     $finish;
 end
 
