@@ -51,7 +51,7 @@ module axi_stream_insert_header #(
             header_valid_r <= 0;
         else begin
             if (last_in) header_valid_r <= 0;
-            else if (ready_insert)
+            if (ready_insert)
                 header_valid_r <= valid_insert;
         end
     end
@@ -108,6 +108,6 @@ module axi_stream_insert_header #(
     assign keep_aligned = keep_extended[DATA_BYTE_WD*2-1:0] << empty_byte_cnt_r;
     assign keep_out     = keep_aligned[DATA_BYTE_WD*2-1:DATA_BYTE_WD]; 
     // assign valid_out    = data_handshake_r || last_out;
-    assign valid_out    = header_valid_r & valid_in | last_out;
+    assign valid_out    = (header_valid_r | last_out) & valid_in ;
     assign last_out     = |keep_aligned[DATA_BYTE_WD*2-1:DATA_BYTE_WD] && !not_finish;
 endmodule

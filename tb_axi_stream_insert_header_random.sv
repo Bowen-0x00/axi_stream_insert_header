@@ -1,7 +1,7 @@
 `timescale  1ns / 1ps
 
 `ifndef INCLUDE
-`include "src/axi_stream_insert_header.v"
+`include "src/axi_stream_insert_header_1.v"
 `endif
 module tb_axi_stream_insert_header;
 
@@ -83,23 +83,27 @@ always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
         last_in <= 0;
         keep_in <= 0;
-        
+        last_cnt <= $urandom_range(0, DATA_BYTE_WD-1);
+        keep_in <= 4'hf;
     end
     else begin
-        if (data_sig) begin
-            
+        if (data_sig & ready_in) begin
+            keep_in <= 4'b1111;
+            last_in <= 0;
             if (last_sig & !last_in) begin
                 // keep_in <= 4'b1100;
-                last_cnt = $urandom_range(0, DATA_BYTE_WD-1);
-		        keep_in = 4'hf << last_cnt;
+                last_cnt <= $urandom_range(0, DATA_BYTE_WD-1);
+		        keep_in <= 4'hf << last_cnt;
                 last_in <= 1;
-            end else 
-                keep_in <= 4'b1111;
+            end
         end
         if (last_sig & !last_in) begin
             
         end
-        else last_in <= 0;
+        else begin
+            last_in <= 0;
+            keep_in <= 4'b1111;
+        end
     end
 end
 
@@ -109,7 +113,7 @@ always @(posedge clk or negedge rst_n) begin
     end
     else begin
         valid_in <= data_sig;
-        if (data_sig & ready_in) begin
+        if (valid_in & ready_in) begin
             data_in <= data_in + 32'h04040404;
         end
     end
@@ -122,17 +126,20 @@ always @(posedge clk or negedge rst_n) begin
         data_insert <= 32'hAABBCC00;
         keep_insert <= 0;
         byte_insert_cnt <= 0;
+        hdr_cnt <= $urandom_range(1, DATA_BYTE_WD-1);
+		keep_insert <= 4'hf >> (DATA_BYTE_WD - hdr_cnt);
+		byte_insert_cnt <= hdr_cnt;
     end
     else begin
         valid_insert <= head_sig;
         // byte_insert_cnt <= 0;
-        if (head_sig & ready_insert) begin
+        if (valid_insert & ready_insert) begin
             data_insert <= data_insert + 32'h00000011;
             // keep_insert <= 4'b0111;
             // byte_insert_cnt <= 3;
-            hdr_cnt = $urandom_range(1, DATA_BYTE_WD-1);
-		    keep_insert = 4'hf >> (DATA_BYTE_WD - hdr_cnt);
-		    byte_insert_cnt = hdr_cnt;
+            hdr_cnt <= $urandom_range(1, DATA_BYTE_WD-1);
+		    keep_insert <= 4'hf >> (DATA_BYTE_WD - hdr_cnt);
+		    byte_insert_cnt <= hdr_cnt;
         end
     end
 end

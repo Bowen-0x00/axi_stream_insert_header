@@ -146,12 +146,23 @@ begin
     last_in <= 1;
 
     #(PERIOD*1)
-    valid_insert <= 1;
+    
     #(PERIOD*1)
+    valid_insert <= 1;
+    keep_insert <= 4'b1111;
+    byte_insert_cnt <= 'd4;
     data_insert <= 32'hAA55AA77;
-        #(PERIOD*1)
+    #(PERIOD*1)
     data_insert <= 32'hAA55AA88;
-
+    #(PERIOD*1)
+    valid_insert <= 0;
+    #(PERIOD*1)
+    valid_in <= 0;
+    #(PERIOD*4)
+    valid_in <= 1;
+    #(PERIOD*1)
+    last_in <= 1;
+    
     #(PERIOD*10)
     $finish;
 end
