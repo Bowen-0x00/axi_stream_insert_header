@@ -1,7 +1,7 @@
 `timescale  1ns / 1ps
 
 `ifndef INCLUDE
-`include "src/axi_stream_insert_header.v"
+`include "src/axi_stream_insert_header_1.v"
 `endif
 module tb_axi_stream_insert_header;
 
@@ -145,6 +145,12 @@ begin
     #(PERIOD*5)
     last_in <= 1;
 
+    #(PERIOD*1)
+    valid_insert <= 1;
+    #(PERIOD*1)
+    data_insert <= 32'hAA55AA77;
+        #(PERIOD*1)
+    data_insert <= 32'hAA55AA88;
 
     #(PERIOD*10)
     $finish;
