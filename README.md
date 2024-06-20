@@ -8,6 +8,7 @@ manual 为手动构造测试例的仿真结果：
 
 
 random为随机测试例仿真结果：
-- 无气泡传输（第二个last_out处）
+- output.txt为打印valid_out & ready_out时的输出值
+- 无气泡传输（图片第二个last_out处）
 - 中途ready_out拉低，逐级反压
 
