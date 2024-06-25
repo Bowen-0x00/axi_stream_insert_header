@@ -6,32 +6,32 @@
 module tb_axi_stream_insert_header;
 
 // axi_stream_insert_header Parameters
-parameter PERIOD        = 10                 ;
-parameter DATA_WD       = 32                 ;
-parameter DATA_BYTE_WD  = DATA_WD / 8        ;
+parameter PERIOD        = 10;
+parameter DATA_WD       = 32;
+parameter DATA_BYTE_WD  = DATA_WD / 8;
 parameter BYTE_CNT_WD   = $clog2(DATA_BYTE_WD);
 parameter LAST_CNT      = 2;
 
 // axi_stream_insert_header Inputs
-reg   clk                                  = 0 ;
-reg   rst_n                                = 0 ;
-reg   valid_in                             = 0 ;
-reg   [DATA_WD-1 : 0]  data_in             = 0 ;
-reg   [DATA_BYTE_WD-1 : 0]  keep_in        = 0 ;
-reg   last_in                              = 0 ;
-reg   ready_out                            = 0 ;
-reg   valid_insert                         = 0 ;
-reg   [DATA_WD-1 : 0]  data_insert         = 0 ;
-reg   [DATA_BYTE_WD-1 : 0]  keep_insert    = 0 ;
-reg   [BYTE_CNT_WD-1 : 0]  byte_insert_cnt = 0 ;
+reg                             clk              = 0;
+reg                             rst_n            = 0;
+reg                             valid_in         = 0;
+reg   [DATA_WD-1 : 0]           data_in_r        = 0;
+reg   [DATA_BYTE_WD-1 : 0]      keep_in_r        = 0;
+reg                             last_in_r        = 0;
+reg                             ready_out_r      = 0;
+reg                             valid_insert_r   = 0;
+reg   [DATA_WD-1 : 0]           data_insert_r    = 0;
+reg   [DATA_BYTE_WD-1 : 0]      keep_insert_r    = 0;
+reg   [BYTE_CNT_WD-1 : 0]       byte_insert_cnt_r= 0;
 
 // axi_stream_insert_header Outputs
-wire  ready_in                             ;
-wire  valid_out                            ;
-wire  [DATA_WD-1 : 0]  data_out            ;
-wire  [DATA_BYTE_WD-1 : 0]  keep_out       ;
-wire  last_out                             ;
-wire  ready_insert                         ;
+wire                            ready_in;
+wire                            valid_out;
+wire  [DATA_WD-1 : 0]           data_out;
+wire  [DATA_BYTE_WD-1 : 0]      keep_out;
+wire                            last_out;
+wire                            ready_insert;
 
 
 initial begin
@@ -41,7 +41,7 @@ end
 
 initial
 begin
-    forever #(PERIOD/2)  clk=~clk;
+    forever #(PERIOD/2)  clk=~clk&clk_flag;
 end
 
 initial
@@ -58,14 +58,14 @@ axi_stream_insert_header #(
     .clk                     ( clk                                   ),
     .rst_n                   ( rst_n                                 ),
     .valid_in                ( valid_in                              ),
-    .data_in                 ( data_in          [DATA_WD-1 : 0]      ),
-    .keep_in                 ( keep_in          [DATA_BYTE_WD-1 : 0] ),
-    .last_in                 ( last_in                               ),
-    .ready_out               ( ready_out                             ),
-    .valid_insert            ( valid_insert                          ),
-    .data_insert             ( data_insert      [DATA_WD-1 : 0]      ),
-    .keep_insert             ( keep_insert      [DATA_BYTE_WD-1 : 0] ),
-    .byte_insert_cnt         ( byte_insert_cnt  [BYTE_CNT_WD-1 : 0]  ),
+    .data_in_r                 ( data_in_r          [DATA_WD-1 : 0]      ),
+    .keep_in_r                 ( keep_in_r          [DATA_BYTE_WD-1 : 0] ),
+    .last_in_r                 ( last_in_r                               ),
+    .ready_out_r               ( ready_out_r                             ),
+    .valid_insert_r            ( valid_insert_r                          ),
+    .data_insert_r             ( data_insert_r      [DATA_WD-1 : 0]      ),
+    .keep_insert_r             ( keep_insert_r      [DATA_BYTE_WD-1 : 0] ),
+    .byte_insert_cnt_r         ( byte_insert_cnt_r  [BYTE_CNT_WD-1 : 0]  ),
 
     .ready_in                ( ready_in                              ),
     .valid_out               ( valid_out                             ),
@@ -76,48 +76,48 @@ axi_stream_insert_header #(
 );
 
 //-----------------------------------------激励-----------------------------------------------
-reg data_sig;
-reg last_sig;
-reg [31:0] seed=1;
-reg	[DATA_BYTE_WD-1:0] last_cnt;
-reg	[BYTE_CNT_WD-1:0] hdr_cnt;
+reg                     data_sig_r;
+reg                     last_sig_r;
+reg [31:0]              seed=1;
+reg	[DATA_BYTE_WD-1:0]  last_cnt;
+reg	[BYTE_CNT_WD-1:0]   hdr_cnt;
 
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
-        last_in <= 0;
-        keep_in <= 0;
+        last_in_r <= 0;
+        keep_in_r <= 0;
         last_cnt <= $urandom_range(0, DATA_BYTE_WD-1);
-        keep_in <= 4'hf;
+        keep_in_r <= 4'hf;
     end
     else begin
-        if (data_sig) begin
-            keep_in <= 4'b1111;
-            last_in <= 0;
-            if (last_sig & !last_in) begin
-                // keep_in <= 4'b1100;
+        if (data_sig_r) begin
+            keep_in_r <= 4'b1111;
+            last_in_r <= 0;
+            if (last_sig_r & !last_in_r) begin
+                // keep_in_r <= 4'b1100;
                 last_cnt <= $urandom_range(0, DATA_BYTE_WD-1);
-		        keep_in <= 4'hf << last_cnt;
-                last_in <= 1;
+		        keep_in_r <= 4'hf << last_cnt;
+                last_in_r <= 1;
             end
         end
-        if (last_sig & !last_in) begin
+        if (last_sig_r & !last_in_r) begin
             
         end
         else begin
-            last_in <= 0;
-            keep_in <= 4'b1111;
+            last_in_r <= 0;
+            keep_in_r <= 4'b1111;
         end
     end
 end
 
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
-        data_in <= 32'h01020304;
+        data_in_r <= 32'h01020304;
     end
     else begin
-        valid_in <= data_sig;
+        valid_in <= data_sig_r;
         if (valid_in & ready_in) begin
-            data_in <= data_in + 32'h04040404;
+            data_in_r <= data_in_r + 32'h04040404;
         end
     end
 end
@@ -126,42 +126,42 @@ reg head_sig;
 
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
-        data_insert <= 32'hAABBCC00;
-        keep_insert <= 0;
-        byte_insert_cnt <= 0;
+        data_insert_r <= 32'hAABBCC00;
+        keep_insert_r <= 0;
+        byte_insert_cnt_r <= 0;
         hdr_cnt <= $urandom_range(0, DATA_BYTE_WD-1);
-		keep_insert <= 4'hf >> (DATA_BYTE_WD - hdr_cnt - 1);
-		byte_insert_cnt <= hdr_cnt;
+		keep_insert_r <= 4'hf >> (DATA_BYTE_WD - hdr_cnt - 1);
+		byte_insert_cnt_r <= hdr_cnt;
     end
     else begin
-        valid_insert <= head_sig;
-        // byte_insert_cnt <= 0;
-        if (valid_insert & ready_insert) begin
-            data_insert <= data_insert + 32'h00000011;
-            // keep_insert <= 4'b0111;
-            // byte_insert_cnt <= 3;
+        valid_insert_r <= head_sig;
+        // byte_insert_cnt_r <= 0;
+        if (valid_insert_r & ready_insert) begin
+            data_insert_r <= data_insert_r + 32'h00000011;
+            // keep_insert_r <= 4'b0111;
+            // byte_insert_cnt_r <= 3;
             hdr_cnt <= $urandom_range(0, DATA_BYTE_WD-1);
-		    keep_insert <= 4'hf >> (DATA_BYTE_WD - hdr_cnt - 1);
-		    byte_insert_cnt <= hdr_cnt;
+		    keep_insert_r <= 4'hf >> (DATA_BYTE_WD - hdr_cnt - 1);
+		    byte_insert_cnt_r <= hdr_cnt;
         end
     end
 end
-
+//--------------------------signal tasks------------------------------
 task data_valid; 
     begin
-        data_sig <= 1;
+        data_sig_r <= 1;
     end
 endtask
 task data_invalid; 
     begin
-        data_sig <= 0;
+        data_sig_r <= 0;
     end
 endtask
 task last; 
     begin
-        last_sig <= 1;
+        last_sig_r <= 1;
         #(PERIOD*1)
-        last_sig <= 0;
+        last_sig_r <= 0;
     end
 endtask
 task head; 
@@ -174,13 +174,13 @@ endtask
 
 task ready; 
     begin
-        ready_out <= 1;
+        ready_out_r <= 1;
     end
 endtask
 
 task notready; 
     begin
-        ready_out <= 0;
+        ready_out_r <= 0;
     end
 endtask
 
@@ -188,7 +188,7 @@ reg [3:0] rand_val1;
 reg [3:0] rand_val2;
 reg [3:0] rand_val3;
 
-
+//-----------------------------random driven-------------------------------------
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
         
@@ -244,10 +244,10 @@ end
 endtask
 
 always @(posedge clk) begin
-    if (ready_insert && valid_insert) begin
-        header_r <= data_insert;
-        header_keep_r <= keep_insert;
-        byte_insert_cnt_r <= byte_insert_cnt;
+    if (ready_insert && valid_insert_r) begin
+        header_r <= data_insert_r;
+        header_keep_r <= keep_insert_r;
+        byte_insert_cnt_r <= byte_insert_cnt_r;
     end
 end
 
@@ -258,19 +258,19 @@ always @(negedge clk) begin
             // $fwrite("head: %X  keep: %X", header_r, byte_insert_cnt_r);
             display_by_keep(fd_input, header_r, header_keep_r);
         end
-        if (last_in) begin
-            display_by_keep(fd_input, data_in, keep_in);
+        if (last_in_r) begin
+            display_by_keep(fd_input, data_in_r, keep_in_r);
             $fwrite(fd_input, "\n");
             first_head <= 1;
         end
         else begin
-            $fwrite(fd_input, "%X", data_in);      
+            $fwrite(fd_input, "%X", data_in_r);      
         end
     end
 end
 
 always @(negedge clk) begin
-    if (ready_out && valid_out) begin
+    if (ready_out_r && valid_out) begin
         if (last_out) begin
             display_by_keep2(data_out, keep_out);
             $fwrite(fd_output, "\n");
@@ -321,20 +321,34 @@ begin
 end
 endtask
 
+reg finish_flag_r = 0;
+reg clk_flag = 1;
+//------------------------stop signals---------------------------
+always @(posedge clk) begin
+    if (last_out & finish_flag_r & ready_out_r) begin
+        clk_flag <= 0;
+        valid_in <= 0;
+        valid_insert_r <= 0;
+        disable fork;
+    end
+end
 
 initial
 begin
     fd_input = $fopen("./input.txt", "w+"); 
     fd_output = $fopen("./output.txt", "w+"); 
     head_sig <= 0;
-    data_sig <= 0;
-    last_sig <= 0;
-    ready_out <= 1;
+    data_sig_r <= 0;
+    last_sig_r <= 0;
+    ready_out_r <= 1;
 
 
     #(PERIOD*1000)
+    finish_flag_r <= 1;
+    #(PERIOD*10)
     $fclose(fd_input);
     $fclose(fd_output);
+    
     comp_file();
     $finish;
 end
