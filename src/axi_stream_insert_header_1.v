@@ -38,9 +38,9 @@ module axi_stream_insert_header #(
     wire       [DATA_BYTE_WD*2-1:0]         keep_aligned;
     // handshake
     wire                                    header_handshake;
-    wire                                    data_handshake;
 
     wire                                    not_finish;
+    reg                                     data_last_in_r;
     // --------------------------------------------------------
     //header ready
     assign      ready_insert     = !header_valid_r || last_out && ready_out;//not valid || last in
@@ -50,12 +50,12 @@ module axi_stream_insert_header #(
         if (!rst_n)
             header_valid_r <= 0;
         else begin
-            if (last_in) header_valid_r <= 0;
-            if (ready_insert)
+            if (last_in && ready_out) header_valid_r <= 0;
+            else if (ready_insert)
                 header_valid_r <= valid_insert;
         end
     end
-    // header data
+    
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             header_byte_cnt_r <= 0;
@@ -68,16 +68,16 @@ module axi_stream_insert_header #(
                 last_data_r <= data_insert;
                 last_keep_r <= keep_insert;
             end
-            else if (data_handshake) begin
-                last_data_r <= data_in;
-                last_keep_r <= keep_in;    
+            else if (valid_out && ready_out) begin
+                last_data_r <= header_valid_r ? data_in : 0;
+                last_keep_r <= header_valid_r ? keep_in : 0;    
             end
         end
     end
 
     // data ready
-    assign      ready_in = header_valid_r  && (!data_valid_r || ready_out);// TODO
-    assign      data_handshake = valid_in && ready_in;
+    // assign      ready_in = header_valid_r  && (!data_valid_r || ready_out);// TODO
+    assign      ready_in = header_valid_r && ready_out;
 
     // data valid
     always @(posedge clk or negedge rst_n) begin
@@ -89,17 +89,23 @@ module axi_stream_insert_header #(
                 data_valid_r <= header_valid_r;
         end
     end
-    // data
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) data_last_in_r <= 0;
+        else begin
+            data_last_in_r <= last_in;
+        end
+    end
+    
     assign not_finish       = |keep_aligned[DATA_BYTE_WD-1:0];
     // concat header and data
     assign data_extended[DATA_WD*2-1:0] = {last_data_r, header_valid_r ? data_in : {DATA_WD{1'b0}}};
     assign keep_extended[DATA_BYTE_WD*2-1:0] = {last_keep_r, header_valid_r ? keep_in : {DATA_BYTE_WD{1'b0}}};
 
     // empty shift num
-    wire    [BYTE_CNT_WD+3-1:0]     empty_byte_cnt_bit;
+    wire    [BYTE_CNT_WD+3:0]     empty_byte_cnt_bit;
     // wire    [BYTE_CNT_WD-1:0]      header_byte_cnt = (not_finish & valid_insert) ? header_byte_cnt_r2 : header_byte_cnt_r; //r2 avoid overwriting
-    wire    [BYTE_CNT_WD-1:0]       header_byte_cnt = header_byte_cnt_r;
-    wire    [BYTE_CNT_WD-1:0]       empty_byte_cnt_r = DATA_BYTE_WD - header_byte_cnt;
+    wire    [BYTE_CNT_WD:0]       header_byte_cnt = header_byte_cnt_r + 1;
+    wire    [BYTE_CNT_WD:0]       empty_byte_cnt_r = DATA_BYTE_WD - header_byte_cnt;
 
     assign empty_byte_cnt_bit = empty_byte_cnt_r << 3;
     // data and keep by shift
@@ -108,6 +114,6 @@ module axi_stream_insert_header #(
     assign keep_aligned = keep_extended[DATA_BYTE_WD*2-1:0] << empty_byte_cnt_r;
     assign keep_out     = keep_aligned[DATA_BYTE_WD*2-1:DATA_BYTE_WD]; 
     // assign valid_out    = data_handshake_r || last_out;
-    assign valid_out    = (header_valid_r | last_out) & valid_in ;
+    assign valid_out    = empty_byte_cnt_r != 0 ? (header_valid_r | last_out) & valid_in : (header_valid_r | data_last_in_r) & data_valid_r;
     assign last_out     = |keep_aligned[DATA_BYTE_WD*2-1:DATA_BYTE_WD] && !not_finish;
 endmodule

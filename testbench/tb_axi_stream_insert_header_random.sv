@@ -39,7 +39,6 @@ initial begin
     $dumpvars(0, tb_axi_stream_insert_header);
 end
 
-
 initial
 begin
     forever #(PERIOD/2)  clk=~clk;
@@ -76,8 +75,12 @@ axi_stream_insert_header #(
     .ready_insert            ( ready_insert                          )
 );
 
+//-----------------------------------------激励-----------------------------------------------
 reg data_sig;
 reg last_sig;
+reg [31:0] seed=1;
+reg	[DATA_BYTE_WD-1:0] last_cnt;
+reg	[BYTE_CNT_WD-1:0] hdr_cnt;
 
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
@@ -87,7 +90,7 @@ always @(posedge clk or negedge rst_n) begin
         keep_in <= 4'hf;
     end
     else begin
-        if (data_sig & ready_in) begin
+        if (data_sig) begin
             keep_in <= 4'b1111;
             last_in <= 0;
             if (last_sig & !last_in) begin
@@ -126,8 +129,8 @@ always @(posedge clk or negedge rst_n) begin
         data_insert <= 32'hAABBCC00;
         keep_insert <= 0;
         byte_insert_cnt <= 0;
-        hdr_cnt <= $urandom_range(1, DATA_BYTE_WD-1);
-		keep_insert <= 4'hf >> (DATA_BYTE_WD - hdr_cnt);
+        hdr_cnt <= $urandom_range(0, DATA_BYTE_WD-1);
+		keep_insert <= 4'hf >> (DATA_BYTE_WD - hdr_cnt - 1);
 		byte_insert_cnt <= hdr_cnt;
     end
     else begin
@@ -137,8 +140,8 @@ always @(posedge clk or negedge rst_n) begin
             data_insert <= data_insert + 32'h00000011;
             // keep_insert <= 4'b0111;
             // byte_insert_cnt <= 3;
-            hdr_cnt <= $urandom_range(1, DATA_BYTE_WD-1);
-		    keep_insert <= 4'hf >> (DATA_BYTE_WD - hdr_cnt);
+            hdr_cnt <= $urandom_range(0, DATA_BYTE_WD-1);
+		    keep_insert <= 4'hf >> (DATA_BYTE_WD - hdr_cnt - 1);
 		    byte_insert_cnt <= hdr_cnt;
         end
     end
@@ -184,9 +187,7 @@ endtask
 reg [3:0] rand_val1;
 reg [3:0] rand_val2;
 reg [3:0] rand_val3;
-reg [31:0] seed=1;
-reg	[DATA_BYTE_WD-1:0] last_cnt;
-reg	[BYTE_CNT_WD-1:0] hdr_cnt;
+
 
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
@@ -213,16 +214,129 @@ always @(posedge clk or negedge rst_n) begin
         end
     end
 end
+
+//--------------------------record------------------------------------------
+
+integer fd_input, fd_output;
+reg [31:0] header_r;
+reg [31:0] header_keep_r;
+reg [3:0] byte_insert_cnt_r;
+reg first_head = 1;
+
+task display_by_keep(input integer fd, input logic [DATA_WD-1 : 0]  data, input logic [DATA_BYTE_WD-1 : 0] keep);
+begin
+    integer i;
+    for (i = DATA_BYTE_WD-1; i >= 0; i=i-1) begin
+        if (keep[i])
+            $fwrite(fd, "%X", data[i*8+:8]);
+    end
+end
+endtask
+
+task display_by_keep2(input logic [DATA_WD-1 : 0]  data, input logic [DATA_BYTE_WD-1 : 0] keep);
+begin
+    integer i;
+    for (i = DATA_BYTE_WD-1; i >= 0; i=i-1) begin
+        if (keep[i])
+            $fwrite(fd_output, "%X", data[i*8+:8]);
+    end
+end
+endtask
+
+always @(posedge clk) begin
+    if (ready_insert && valid_insert) begin
+        header_r <= data_insert;
+        header_keep_r <= keep_insert;
+        byte_insert_cnt_r <= byte_insert_cnt;
+    end
+end
+
+always @(negedge clk) begin
+    if (ready_in && valid_in) begin
+        if (first_head) begin
+            first_head <= 0;
+            // $fwrite("head: %X  keep: %X", header_r, byte_insert_cnt_r);
+            display_by_keep(fd_input, header_r, header_keep_r);
+        end
+        if (last_in) begin
+            display_by_keep(fd_input, data_in, keep_in);
+            $fwrite(fd_input, "\n");
+            first_head <= 1;
+        end
+        else begin
+            $fwrite(fd_input, "%X", data_in);      
+        end
+    end
+end
+
+always @(negedge clk) begin
+    if (ready_out && valid_out) begin
+        if (last_out) begin
+            display_by_keep2(data_out, keep_out);
+            $fwrite(fd_output, "\n");
+        end
+        else 
+            $fwrite(fd_output, "%X", data_out);
+    end
+end
+reg [1000:0] line1, line2;
+bit files_equal;
+int status1, status2;
+
+//--------------------------compare------------------------------------------
+task comp_file();
+begin
+    fd_input = $fopen("./input.txt", "r");
+    if (fd_input == 0) begin
+        $display("Error opening input.txt");
+    end
+
+    fd_output = $fopen("./output.txt", "r");
+    if (fd_output == 0) begin
+        $display("Error opening output.txt");
+    end
+    files_equal = 1;
+
+    while (!$feof(fd_input) && !$feof(fd_output)) begin
+        status1 = $fgets(line1, fd_input);
+        status2 = $fgets(line2, fd_output);
+
+        if (line1 != line2) begin
+            files_equal = 0;
+            // break;
+        end
+    end
+
+    if (!$feof(fd_input) || !$feof(fd_output)) begin
+        files_equal = 0;
+    end
+
+    $fclose(fd_input);
+    $fclose(fd_output);
+    if (files_equal) begin
+        $display("The files are identical.");
+    end else begin
+        $display("The files are different.");
+    end
+end
+endtask
+
+
 initial
 begin
+    fd_input = $fopen("./input.txt", "w+"); 
+    fd_output = $fopen("./output.txt", "w+"); 
     head_sig <= 0;
     data_sig <= 0;
     last_sig <= 0;
     ready_out <= 1;
 
 
-    #(PERIOD*100)
+    #(PERIOD*1000)
+    $fclose(fd_input);
+    $fclose(fd_output);
+    comp_file();
     $finish;
 end
-
+ 
 endmodule
