@@ -1,14 +1,13 @@
-一个周期延迟输出（时钟沿输出header和第一个data的部分，每个时钟周期输出当前data的一部分，剩余在下个周期输出）
+`testbench\tb_axi_stream_insert_header_random.sv` 为随机tb，data按序增长;
+- valid_insert
+- keep_insert
+- byte_insert_cnt
+- valid_in
+- keep_in
+- last_in
 
-manual 为手动构造测试例的仿真结果：
-- 无气泡传输
-- 中途ready_out拉低，逐级反压（ready_out直接以组合逻辑传递拉低ready_in）
-- last_out与last_in同周期以及last_out在last_in下个周期
+等信号全部随机。
 
+tb中会记录预期输出与实际输出（按照keep_out的data_out），并进行对比，当一致时输出success，否则会输出不一致
 
-
-random为随机测试例仿真结果：
-- output.txt为打印valid_out & ready_out时的输出值
-- 无气泡传输（图片第二个last_out处）
-- 中途ready_out拉低，逐级反压
-
+build目录下是我运行了1000多时钟周期，90个合并的信号流的结果，实际输出与预期值一致。

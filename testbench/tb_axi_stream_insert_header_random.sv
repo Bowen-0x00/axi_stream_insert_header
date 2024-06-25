@@ -15,7 +15,7 @@ parameter LAST_CNT      = 2;
 // axi_stream_insert_header Inputs
 reg                             clk              = 0;
 reg                             rst_n            = 0;
-reg                             valid_in         = 0;
+reg                             valid_in_r         = 0;
 reg   [DATA_WD-1 : 0]           data_in_r        = 0;
 reg   [DATA_BYTE_WD-1 : 0]      keep_in_r        = 0;
 reg                             last_in_r        = 0;
@@ -57,7 +57,7 @@ axi_stream_insert_header #(
  u_axi_stream_insert_header (
     .clk                     ( clk                                   ),
     .rst_n                   ( rst_n                                 ),
-    .valid_in                ( valid_in                              ),
+    .valid_in_r                ( valid_in_r                              ),
     .data_in_r                 ( data_in_r          [DATA_WD-1 : 0]      ),
     .keep_in_r                 ( keep_in_r          [DATA_BYTE_WD-1 : 0] ),
     .last_in_r                 ( last_in_r                               ),
@@ -115,8 +115,8 @@ always @(posedge clk or negedge rst_n) begin
         data_in_r <= 32'h01020304;
     end
     else begin
-        valid_in <= data_sig_r;
-        if (valid_in & ready_in) begin
+        valid_in_r <= data_sig_r;
+        if (valid_in_r & ready_in) begin
             data_in_r <= data_in_r + 32'h04040404;
         end
     end
@@ -252,7 +252,7 @@ always @(posedge clk) begin
 end
 
 always @(negedge clk) begin
-    if (ready_in && valid_in) begin
+    if (ready_in && valid_in_r) begin
         if (first_head) begin
             first_head <= 0;
             // $fwrite("head: %X  keep: %X", header_r, byte_insert_cnt_r);
@@ -327,7 +327,7 @@ reg clk_flag = 1;
 always @(posedge clk) begin
     if (last_out & finish_flag_r & ready_out_r) begin
         clk_flag <= 0;
-        valid_in <= 0;
+        valid_in_r <= 0;
         valid_insert_r <= 0;
         disable fork;
     end
